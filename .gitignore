@@ -2,3 +2,4 @@
 *
 !*.py
 !requirements.txt
+!.gitignore # don't ignore yourself too ._.
