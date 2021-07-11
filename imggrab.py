@@ -7,7 +7,6 @@ import time
 import os
 import json
 
-
 logging.basicConfig(filename='logs.log', level=logging.ERROR,
     format='%(asctime)s:[%(levelname)s]:%(message)s')
 logger = logging.getLogger(__file__)
@@ -47,7 +46,7 @@ class utils():
             try:
                 os.makedirs(path)
                 logger.debug(f"'{path}' created")
-            except PermissionError as e:
+            except PermissionError:
                 logger.error(f"Permission denied to {path}, consider trying another path")
 
     def file_amount(path):
@@ -71,7 +70,7 @@ def get_soup(url):
     return soup
 
 def get_talents(mainpage) -> list[Talent]:
-    """ get talent names and link to their wiki pages """
+    """ Get talent names and link to their wiki pages """
 
     logger.info('Getting talents')
 
@@ -104,16 +103,19 @@ def find_image_urls_of(talent):
     start = time.time()
     soup = get_soup(talent.link)
     costume_div = soup.find('div', {'class':'tabbertab', 'title': 'Costumes '})
-    for tag in costume_div.descendants:
-        if isinstance(tag, bs4.element.Tag) and tag.name == 'a':
-            try:
-                if tag['class'][0] == 'image':
-                    img_page = get_soup("https://hololive.wiki"+tag['href'])
-                    img_div = img_page.find('div', {'class':'fullImageLink'})
-                    logger.debug(f"Found image url: {img_div.a['href']}")
-                    talent.img_urls.append(img_div.a['href'])
-            except:
-                pass
+    try:
+        for tag in costume_div.descendants:
+            if isinstance(tag, bs4.element.Tag) and tag.name == 'a':
+                try:
+                    if tag['class'][0] == 'image':
+                        img_page = get_soup("https://hololive.wiki"+tag['href'])
+                        img_div = img_page.find('div', {'class':'fullImageLink'})
+                        logger.debug(f"Found image url: {img_div.a['href']}")
+                        talent.img_urls.append(img_div.a['href'])
+                except:
+                    pass
+    except Exception as e:
+        logging.error(f"Couldn't get img urls ({e}), you might want to get it yourself from {talent.link}")
 
     end = time.time()
     logger.debug(f"{len(talent.img_urls)} images found in {end-start}s")
@@ -139,9 +141,9 @@ def download_all_images_of(talent, foldername=None, forced=False):
     logger.debug(f"{len(talent.img_urls)} images has been downloaded in {end-start}s")
 
 
-
 def import_talents(path):
     logger.info(f'Importing talents to {path}')
+    # WIP
     pass
 
 def export_talents(talents, path='./talents.json'):
@@ -152,12 +154,29 @@ def export_talents(talents, path='./talents.json'):
 if __name__ == '__main__':
     mainpage = get_soup('https://hololive.wiki/wiki/Main_Page')
     talents = get_talents(mainpage)
+    
+    export_talents(talents)
 
-    for talent in talents:
-        find_image_urls_of(talent)
+    start = time.time()
+    try:
+        for talent in talents:
+            find_image_urls_of(talent)
+    except Exception as e:
+        logger.error(f"Couldn't find all image urls: {e}")
+        export_talents(talents)
+    end = time.time()
+    logger.debug(f"All img url's has been found in {end-start}s")
 
     export_talents(talents)
 
-    for talent in talents:
-        download_all_images_of(talent)
+    start = time.time()
+    try:
+        for talent in talents:
+            download_all_images_of(talent)
+    except Exception as e:
+        logger.error(f"Couldn't download all images: {e}")
+    end = time.time()
+    logger.debug(f"All img url's has been found in {end-start}s")
+    
+    os.system("echo ") # windows notification sound
 
